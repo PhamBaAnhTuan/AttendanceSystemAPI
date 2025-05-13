@@ -28,6 +28,7 @@ class Teacher(models.Model):
     phone_number = models.CharField(max_length=15, unique=True, null=True, blank=True)
     address = models.TextField(blank=True, null=True, default='Da Nang')
     date_of_birth = models.CharField(null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female'), ('other', 'Other')], null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
     delete_at = models.DateTimeField(null=True, blank=True)
@@ -44,6 +45,8 @@ class Student(models.Model):
     address = models.TextField(blank=True, null=True, default='Da Nang')
     date_of_birth = models.CharField(null=True, blank=True)
     class_id = models.ForeignKey('Class', on_delete=models.CASCADE)
+    gender = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female'), ('other', 'Other')], null=True, blank=True)
+    enrollment_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
     delete_at = models.DateTimeField(null=True, blank=True)
@@ -55,6 +58,13 @@ class Class(models.Model):
     id = models.CharField(primary_key=True, unique=True, null=False, blank=False)
     name = models.CharField(max_length=255, null=False, blank=False)
     description = models.TextField(blank=True, null=True)
+    status = models.CharField(
+        max_length=50,
+        choices=[('active', 'Active'), ('inactive', 'Inactive')],
+        default='active',
+        null=False,
+        blank=False
+    )
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
     delete_at = models.DateTimeField(null=True, blank=True)
