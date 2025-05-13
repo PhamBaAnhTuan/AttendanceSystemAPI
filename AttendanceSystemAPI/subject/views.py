@@ -20,14 +20,42 @@ import os
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+# permission
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from oauth2_provider.contrib.rest_framework.permissions import OAuth2Authentication
 
 class SubjectViewSet(viewsets.ModelViewSet):
+   # authentication_classes = [OAuth2Authentication]
+   # permission_classes = [IsAuthenticated]
    queryset = Subject.objects.all()
    serializer_class = SubjectSerializer
    
 class TeacherViewSet(viewsets.ModelViewSet):
    queryset = Teacher.objects.all()
    serializer_class = TeacherSerializer
+   
+   @action(detail=False, methods=['post'], url_path='upload-image')
+   def upload_image(self, request):
+      image = request.FILES.get('image')
+      if not image:
+         return Response({'error': 'No image provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+      # Đặt tên file dựa trên tên file gửi lên từ frontend
+      filename = image.name  # ví dụ: 123_NguyenVanA_front.jpg
+
+      # Thư mục lưu ảnh (media/student_images/)
+      save_path = os.path.join('teacher_images', filename)
+      full_path = os.path.join(settings.MEDIA_ROOT, save_path)
+
+      # Đảm bảo thư mục tồn tại
+      os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+      # Ghi file
+      with default_storage.open(save_path, 'wb+') as destination:
+         for chunk in image.chunks():
+               destination.write(chunk)
+
+      return Response({'message': 'Image saved successfully', 'path': settings.MEDIA_URL + save_path})
 
 class StudentViewSet(viewsets.ModelViewSet):
    queryset = Student.objects.all()

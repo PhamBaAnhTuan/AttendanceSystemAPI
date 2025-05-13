@@ -23,7 +23,7 @@ class Subject(models.Model):
 class Teacher(models.Model):
     id = models.IntegerField(primary_key=True, unique=True, null=False, blank=False)
     name = models.CharField(max_length=255)
-    avatar = models.TextField(blank=True, null=True)
+    avatar = models.ImageField(upload_to='avatar/teacher/', blank=True, null=True)
     email = models.EmailField(max_length=255, unique=True, null=True, blank=True)
     phone_number = models.CharField(max_length=15, unique=True, null=True, blank=True)
     address = models.TextField(blank=True, null=True, default='Da Nang')
@@ -38,7 +38,7 @@ class Teacher(models.Model):
 class Student(models.Model):
     id = models.IntegerField(primary_key=True, unique=True, null=False, blank=False)
     name = models.CharField(max_length=255)
-    avatar = models.ImageField(upload_to='images/', blank=True, null=True)
+    avatar = models.ImageField(upload_to='avatar/student/', blank=True, null=True)
     email = models.EmailField(max_length=255, unique=True, null=True, blank=True)
     phone_number = models.CharField(max_length=15, unique=True, null=True, blank=True)
     address = models.TextField(blank=True, null=True, default='Da Nang')
