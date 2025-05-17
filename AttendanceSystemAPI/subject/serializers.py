@@ -14,12 +14,19 @@ class SubjectSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class TeacherSerializer(serializers.ModelSerializer):
+    date_of_birth = serializers.DateField(
+        input_formats=['%d/%m/%Y'],
+        format='%d/%m/%Y',
+    )
     class Meta:
         model = Teacher
         fields = '__all__'
 
 class StudentSerializer(serializers.ModelSerializer):
-        
+    date_of_birth = serializers.DateField(
+        input_formats=['%d/%m/%Y'],
+        format='%d/%m/%Y',
+    )
     class Meta:
         model = Student
         fields = '__all__'
