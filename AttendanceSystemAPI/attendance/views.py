@@ -116,3 +116,4 @@ class StudentSubjectViewSet(viewsets.ModelViewSet):
 class RoomSubjectViewSet(viewsets.ModelViewSet):
    queryset = RoomSubject.objects.all()
    serializer_class = RoomSubjectSerializer
+

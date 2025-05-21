@@ -32,7 +32,8 @@ DEBUG = True
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    '172.16.0.17'
+    '172.16.0.17',
+    '192.168.1.247'
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -54,6 +55,8 @@ INSTALLED_APPS = [
     'corsheaders',
     
     'subject',
+    'attendance',
+    'face_recog'
 ]
 
 REST_FRAMEWORK = {

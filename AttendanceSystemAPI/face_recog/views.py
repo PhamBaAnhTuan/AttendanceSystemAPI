@@ -1,0 +1,325 @@
+# face_recog/views.py
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from .models import FaceTrainingSession, FaceImage, AttendanceSession, Attendance
+from .serializers import  AttendanceSessionSerializer
+from attendance.models import Student
+from .serializers import FaceTrainingSessionSerializer, FaceImageSerializer, TrainingRequestSerializer
+from .face_utils import process_training_images, recognize_faces_in_image
+import os
+import re
+from django.conf import settings
+import uuid
+from django.db import IntegrityError
+from django.utils import timezone
+
+
+class FaceTrainingAPIView(viewsets.ViewSet):
+    
+    def extract_student_info_from_filename(self, filename):
+        """Extract student ID and position from filename format Student_ID_name_position.png"""
+        pattern = r'Student_(\d+)_([^_]+)_(.+)\.(png|jpg|jpeg|bmp|gif|webp)'
+        match = re.match(pattern, filename)
+        
+        if match:
+            student_id = match.group(1)
+            student_name = match.group(2)
+            position = match.group(3)  # e.g., left, right, front, etc.
+            return student_id, student_name, position
+        
+        return None, None, None
+    
+    @action(detail=False, methods=['post'])
+    def train(self, request):
+        """API endpoint to train face recognition with 5 images"""
+        serializer = TrainingRequestSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Dictionary to group images by student ID
+        images_by_student = {}
+        
+        # Process each uploaded image
+        for i in range(1, 6):
+            image_key = f'image{i}'
+            if image_key in serializer.validated_data:
+                image = serializer.validated_data[image_key]
+                filename = image.name
+                
+                # Extract student info from filename
+                student_id, student_name, position = self.extract_student_info_from_filename(filename)
+                
+                if not student_id or not position:
+                    return Response({
+                        "error": f"Invalid filename format for {filename}. Expected format: Student_ID_name_position.png"
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Add to images by student dictionary
+                if student_id not in images_by_student:
+                    images_by_student[student_id] = {}
+                
+                images_by_student[student_id][position] = {
+                    'image': image,
+                    'filename': filename,
+                    'student_name': student_name
+                }
+        
+        # Check if we have enough images and they all belong to the same student
+        if len(images_by_student) != 1:
+            return Response({
+                "error": "All images must belong to the same student"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get the student ID and images
+        student_id = list(images_by_student.keys())[0]
+        student_images = images_by_student[student_id]
+        
+        # Check if we have at least 5 images
+        if len(student_images) < 5:
+            return Response({
+                "error": f"Need 5 images for training, got {len(student_images)}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get or create student
+        try:
+            student = Student.objects.get(id=int(student_id))
+        except Student.DoesNotExist:
+            # If student doesn't exist but we have student_name from filename, create a new student
+            student_name = list(student_images.values())[0]['student_name']
+            student = Student.objects.create(
+                id=int(student_id),
+                name=student_name
+            )
+        
+        # Create training session
+        session = FaceTrainingSession.objects.create(student=student)
+        
+        # Process and save each image
+        images_dict = {}
+        
+        for position, image_data in student_images.items():
+            image = image_data['image']
+            filename = image_data['filename']
+            
+            # Save the image with its original name
+            image_path = os.path.join(settings.MEDIA_ROOT, 'images/face_training', filename)
+            
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(image_path), exist_ok=True)
+            
+            # Save image to disk
+            with open(image_path, 'wb+') as destination:
+                for chunk in image.chunks():
+                    destination.write(chunk)
+            
+            # Create face image record
+            face_image = FaceImage.objects.create(
+                session=session,
+                image=f'images/face_training/{filename}',
+                position=position
+            )
+            
+            images_dict[position] = image_path
+        
+        # Process images to get face encodings
+        encodings, message = process_training_images(images_dict)
+
+        if encodings is None:
+            session.delete()  # Delete session if training failed completely
+            return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update student with face encodings
+        student.face_encodings = encodings
+        student.save()
+
+        # Mark training session as completed
+        session.completed = True
+        session.save()
+
+        response_data = {
+            "message": "Face training completed successfully",
+            "student_id": student.id,
+            "student_name": student.name,
+            "session_id": session.id,
+            "positions_processed": list(student_images.keys())
+        }
+
+        # Add warning message if some images failed
+        if message:
+            response_data["warning"] = message
+
+            return Response(response_data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'])
+    def status(self, request):
+        """Check face training status for a student"""
+        student_id = request.query_params.get('student_id')
+        
+        if not student_id:
+            return Response({"error": "student_id parameter is required"}, 
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            student = Student.objects.get(id=student_id)
+            has_face_data = student.face_encodings is not None
+            
+            last_session = FaceTrainingSession.objects.filter(
+                student=student, completed=True
+            ).order_by('-created_at').first()
+            
+            return Response({
+                "student_id": student.id,
+                "student_name": student.name,
+                "has_face_data": has_face_data,
+                "last_training": last_session.created_at if last_session else None
+            })
+            
+        except Student.DoesNotExist:
+            return Response({"error": f"Student with ID {student_id} not found"}, 
+                            status=status.HTTP_404_NOT_FOUND)
+        
+class AttendanceViewSet(viewsets.ModelViewSet):
+    queryset = AttendanceSession.objects.all()
+    serializer_class = AttendanceSessionSerializer
+    
+    def create(self, request):
+        """Create a new attendance session"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Create the session
+        session = AttendanceSession.objects.create(
+            session_name=serializer.validated_data['session_name'],
+            created_by=request.user if request.user.is_authenticated else None,
+        )
+        
+        return Response(self.get_serializer(session).data, status=status.HTTP_201_CREATED)
+    
+    @action(detail=True, methods=['post'])
+    def end_session(self, request, pk=None):
+        """End an active attendance session"""
+        try:
+            session = self.get_object()
+            
+            if not session.is_active:
+                return Response({"error": "This session is already ended"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            session.is_active = False
+            session.end_time = timezone.now()
+            session.save()
+            
+            return Response(self.get_serializer(session).data)
+            
+        except AttendanceSession.DoesNotExist:
+            return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['post'])
+    def take_attendance(self, request, pk=None):
+        """Process an image to detect faces and mark attendance"""
+        try:
+            session = self.get_object()
+            
+            if not session.is_active:
+                return Response({"error": "Cannot take attendance: session is not active"}, 
+                               status=status.HTTP_400_BAD_REQUEST)
+            
+            if 'image' not in request.FILES:
+                return Response({"error": "No image provided"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            uploaded_image = request.FILES['image']
+            
+            # Save the uploaded image temporarily
+            temp_filename = f"attendance_{uuid.uuid4().hex}.png"
+            temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp')
+            os.makedirs(temp_dir, exist_ok=True)
+            temp_path = os.path.join(temp_dir, temp_filename)
+            
+            with open(temp_path, 'wb+') as destination:
+                for chunk in uploaded_image.chunks():
+                    destination.write(chunk)
+            
+            try:
+                # Process the image to recognize faces
+                recognized_faces, error = recognize_faces_in_image(temp_path)
+                
+                if error and not recognized_faces:
+                    return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Track successfully marked attendance
+                marked_students = []
+                
+                # Mark attendance for each recognized face
+                for face_data in recognized_faces:
+                    try:
+                        student = Student.objects.get(id=face_data['student_id'])
+                        
+                        # Save the image for this attendance record
+                        attendance_image_name = f"attendance_{session.id}_{student.id}.png"
+                        attendance_image_path = os.path.join(settings.MEDIA_ROOT, 'images/attendance', attendance_image_name)
+                        os.makedirs(os.path.dirname(attendance_image_path), exist_ok=True)
+                        
+                        # Copy the temp image to attendance folder
+                        import shutil
+                        shutil.copy(temp_path, attendance_image_path)
+                        
+                        # Create or update attendance record
+                        attendance, created = Attendance.objects.update_or_create(
+                            session=session,
+                            student=student,
+                            defaults={
+                                'confidence': face_data['confidence'],
+                                'capture_image': f'images/attendance/{attendance_image_name}'
+                            }
+                        )
+                        
+                        marked_students.append({
+                            'student_id': student.id,
+                            'student_name': student.name,
+                            'confidence': face_data['confidence'],
+                            'already_marked': not created
+                        })
+                        
+                    except Student.DoesNotExist:
+                        # Skip if student doesn't exist
+                        continue
+                    except IntegrityError:
+                        # Already marked attendance for this student
+                        continue
+                
+                # Return the results
+                return Response({
+                    'session_id': session.id,
+                    'session_name': session.session_name,
+                    'recognized_count': len(recognized_faces),
+                    'marked_students': marked_students
+                })
+                
+            finally:
+                # Clean up temporary file
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                    
+        except AttendanceSession.DoesNotExist:
+            return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['get'])
+    def stats(self, request, pk=None):
+        """Get statistics for an attendance session"""
+        try:
+            session = self.get_object()
+            attendances = session.attendances.all()
+            
+            return Response({
+                'session_id': session.id,
+                'session_name': session.session_name,
+                'start_time': session.start_time,
+                'end_time': session.end_time,
+                'is_active': session.is_active,
+                'total_attendance': attendances.count(),
+                'attendances': AttendanceSerializer(attendances, many=True).data
+            })
+            
+        except AttendanceSession.DoesNotExist:
+            return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
