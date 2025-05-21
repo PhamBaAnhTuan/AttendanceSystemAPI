@@ -19,10 +19,13 @@ from django.urls import path, include
 
 from django.conf import settings
 from django.conf.urls.static import static
+# from face_recog.views import FaceTrainingView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('o/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     path('user/', include('user.urls')),
-    path('api/', include('subject.urls')),
+    path('api/', include('attendance.urls')),
+    path('face_recog/', include('face_recog.urls')),
+    # path("face-training/", FaceTrainingView.as_view(), name="face-training"),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
