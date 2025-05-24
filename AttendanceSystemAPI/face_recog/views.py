@@ -3,7 +3,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import FaceTrainingSession, FaceImage, AttendanceSession, Attendance
-from .serializers import  AttendanceSessionSerializer
+from .serializers import  AttendanceSessionSerializer, AttendanceSerializer
 from attendance.models import Student
 from .serializers import FaceTrainingSessionSerializer, FaceImageSerializer, TrainingRequestSerializer
 from .face_utils import process_training_images, recognize_faces_in_image
@@ -19,8 +19,11 @@ class FaceTrainingAPIView(viewsets.ViewSet):
     
     def extract_student_info_from_filename(self, filename):
         """Extract student ID and position from filename format Student_ID_name_position.png"""
-        pattern = r'Student_(\d+)_([^_]+)_(.+)\.(png|jpg|jpeg|bmp|gif|webp)'
+        # pattern = r'{Student}_(\d+)_([^_]+)_(.+)\.(png|jpg|jpeg|bmp|gif|webp)'
+        pattern = r'^Student_(\d+)_([^_]+)_(.+)\.(png|jpg|jpeg|bmp|gif|webp)$'
         match = re.match(pattern, filename)
+        
+
         
         if match:
             student_id = match.group(1)
@@ -138,19 +141,23 @@ class FaceTrainingAPIView(viewsets.ViewSet):
         session.completed = True
         session.save()
 
+        positions_processed = []
+        for position in student_images.keys():
+            formatted_position = f"Student_{student.id}_{student.name}_{position}"
+            positions_processed.append(formatted_position)
         response_data = {
             "message": "Face training completed successfully",
             "student_id": student.id,
             "student_name": student.name,
             "session_id": session.id,
-            "positions_processed": list(student_images.keys())
+            "positions_processed": positions_processed
+
         }
 
         # Add warning message if some images failed
         if message:
             response_data["warning"] = message
-
-            return Response(response_data, status=status.HTTP_201_CREATED)
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'])
     def status(self, request):
@@ -278,7 +285,8 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                             'student_id': student.id,
                             'student_name': student.name,
                             'confidence': face_data['confidence'],
-                            'already_marked': not created
+                            'already_marked': not created,
+                            'class_id': student.class_id.id if student.class_id else None,
                         })
                         
                     except Student.DoesNotExist:
