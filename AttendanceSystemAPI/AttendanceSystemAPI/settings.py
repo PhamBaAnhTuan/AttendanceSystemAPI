@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+ALLOWED_HOSTS = ['*']
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -33,7 +36,9 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
     '172.16.0.17',
-    '192.168.1.247'
+    '192.168.1.247',
+    '172.21.1.99',
+    '*'
 ]
 
 CORS_ALLOWED_ORIGINS = [

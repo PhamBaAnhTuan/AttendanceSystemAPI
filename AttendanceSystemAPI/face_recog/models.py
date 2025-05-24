@@ -1,5 +1,6 @@
 # face_recog/models.py
 from django.db import models
+from attendance.models import Student
 
 class FaceTrainingSession(models.Model):
     student = models.ForeignKey('attendance.Student', on_delete=models.CASCADE)
@@ -23,7 +24,7 @@ class AttendanceSession(models.Model):
     start_time = models.DateTimeField(auto_now_add=True)
     end_time = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
-    created_by = models.ForeignKey('attendance.User', on_delete=models.CASCADE, null=True, blank=True)
+    created_by = models.ForeignKey(Student, on_delete=models.CASCADE, null=True, blank=True)
     
     def __str__(self):
         return f"{self.session_name} - {self.start_time}"
