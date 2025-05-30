@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+# import dj_database_url
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,30 +21,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+# APPEND_SLASH=False
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-w0(y)=@q69_xsbk7313q*2-x!m6iu^e_0#5da$toll2&6e-q=y'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    '172.16.0.17'
-]
-
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-
-# Application definition
+ALLOWED_HOSTS = ['*']
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 INSTALLED_APPS = [
+    'channels',
+    'user',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -54,15 +50,64 @@ INSTALLED_APPS = [
     'corsheaders',
     
     'subject',
+    'attendance',
+    'roles'
 ]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
     ),
-    "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.AllowAny",
-    ),
+    "DEFAULT_PERMISSION_CLASSES": [
+        # "rest_framework.permissions.AllowAny",
+        "AttendanceSystemAPI.permission.TokenHasActionScope"
+    ],
+    # 'DEFAULT_FILTER_BACKENDS': [
+    #     'django_filters.rest_framework.DjangoFilterBackend'
+    # ],
+    'DATE_INPUT_FORMATS': ['%d/%m/%Y'],
+    'DATE_FORMAT': '%d/%m/%Y',
+}
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend',
+)
+OAUTH2_PROVIDER = {
+    'OAUTH2_VALIDATOR_CLASS': 'AttendanceSystemAPI.oauth_validators.CustomOAuth2Validator',
+    'SCOPES': {
+        'admin': 'Full admin access',
+        'teacher': 'Basic teacher access',
+        'student': 'Basic student access',
+    },
+    'ACCESS_TOKEN_EXPIRE_SECONDS': 36000 * 100,
+    'REFRESH_TOKEN_EXPIRE_SECONDS': 1209600,
+}
+
+AUTH_USER_MODEL = 'user.User'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+
+WSGI_APPLICATION = 'AttendanceSystemAPI.wsgi.application'
+# ASGI_APPLICATION = 'AttendanceSystemAPI.asgi.application'
+
+# if config("DEPLOY", cast=bool): 
+#     DATABASES = {
+#         'default': dj_database_url.config(default=config("DATABASE_URL"))
+#     }
+# else:
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': config("DATABASE_NAME"),
+        'USER': config("DATABASE_USER"),
+        'PASSWORD': config("DATABASE_PASSWORD"),
+        'HOST': 'localhost',
+        'PORT': '3306',
+        "OPTIONS": {"charset": "utf8mb4"},
+    }
 }
 
 MIDDLEWARE = [
@@ -85,6 +130,7 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
@@ -92,20 +138,6 @@ TEMPLATES = [
         },
     },
 ]
-
-WSGI_APPLICATION = 'AttendanceSystemAPI.wsgi.application'
-
-
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

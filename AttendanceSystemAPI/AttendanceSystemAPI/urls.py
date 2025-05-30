@@ -25,4 +25,7 @@ urlpatterns = [
     path('o/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     path('user/', include('user.urls')),
     path('api/', include('subject.urls')),
+    path('roles/', include('roles.urls')),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+    # path('attendance/', include('attendance.urls')),

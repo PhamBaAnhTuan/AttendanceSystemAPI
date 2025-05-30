@@ -1,23 +1,25 @@
 from rest_framework import routers
 from django.urls import path, include
 from .views import (
-   SubjectViewSet, TeacherViewSet, StudentViewSet, ClassViewSet, RoomViewSet,
-   ClassTeacherViewSet, ClassSubjectViewSet, ClassRoomViewSet, TeacherSubjectViewSet, StudentSubjectViewSet, RoomSubjectViewSet
+   FacultyViewSet, MajorViewSet,
+   SubjectViewSet, ClassViewSet, RoomViewSet,
+   TeacherMajorViewSet, TeacherSubjectViewSet, TeacherClassViewSet,
+   ScheduleViewSet, PeriodDefinitionViewSet
 )
 
 router = routers.DefaultRouter()
+router.register(r'faculty', FacultyViewSet)
+router.register(r'major', MajorViewSet)
 router.register(r'subjects', SubjectViewSet)
-router.register(r'teachers', TeacherViewSet)
-router.register(r'students', StudentViewSet)
 router.register(r'classes', ClassViewSet)
 router.register(r'rooms', RoomViewSet)
 #
-router.register(r'class-subject', ClassSubjectViewSet) 
-router.register(r'class-teacher', ClassTeacherViewSet)
-router.register(r'class-room', ClassRoomViewSet)
+router.register(r'teacher-major', TeacherMajorViewSet)
 router.register(r'teacher-subject', TeacherSubjectViewSet)
-router.register(r'student-subject', StudentSubjectViewSet)
-router.register(r'room-subject', RoomSubjectViewSet)
+router.register(r'teacher-class', TeacherClassViewSet)
+
+router.register(r'period', PeriodDefinitionViewSet)
+router.register(r'schedule', ScheduleViewSet)
 
 urlpatterns = [
    path('', include(router.urls)),

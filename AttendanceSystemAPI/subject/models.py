@@ -1,113 +1,116 @@
 from django.db import models
+from django.contrib.auth import get_user_model
+User = get_user_model()
+from django.utils import timezone
+import uuid
 
-class User(models.Model):  # Giả sử bạn dùng 1 bảng user chung
-    username = models.CharField(max_length=100)
-    role = models.CharField(max_length=50)
-    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
-
+class Faculty(models.Model):
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False, unique=True
+    )
+    name = models.CharField(max_length=255, unique=True, null=False, blank=False)
+    description = models.TextField(blank=True)
+    
     def __str__(self):
-        return self.username
-
+        return self.name
+    
+class Major(models.Model):
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False, unique=True
+    )
+    faculty = models.ForeignKey(Faculty, on_delete=models.CASCADE, related_name="majors")
+    name = models.CharField(max_length=255, unique=True, null=False, blank=False)
+    description = models.TextField(blank=True)
+    
+    def __str__(self):
+        return self.name
 class Subject(models.Model):
-    id = models.IntegerField(primary_key=True, unique=True, null=False, blank=False)
-    name = models.CharField(max_length=255)
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False, unique=True
+    )
+    name = models.CharField(max_length=255, unique=True, null=False, blank=False)
     credit = models.IntegerField(null=False, blank=False, default=3)
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
-    delete_at = models.DateTimeField(null=True, blank=True)
-
-    def __str__(self):
-        return self.name
-    
-class Teacher(models.Model):
-    id = models.IntegerField(primary_key=True, unique=True, null=False, blank=False)
-    name = models.CharField(max_length=255)
-    avatar = models.ImageField(upload_to='images/teacher/', blank=True, null=True)
-    email = models.EmailField(max_length=255, unique=True, null=True, blank=True)
-    phone_number = models.CharField(max_length=15, unique=True, null=True, blank=True)
-    address = models.TextField(blank=True, null=True, default='Da Nang')
-    date_of_birth = models.DateField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
-    update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
-    delete_at = models.DateTimeField(null=True, blank=True)
-
-    def __str__(self):
-        return self.name
-
-class Student(models.Model):
-    id = models.IntegerField(primary_key=True, unique=True, null=False, blank=False)
-    name = models.CharField(max_length=255)
-    avatar = models.ImageField(upload_to='images/student/', blank=True, null=True)
-    email = models.EmailField(max_length=255, unique=True, null=True, blank=True)
-    phone_number = models.CharField(max_length=15, unique=True, null=True, blank=True)
-    address = models.TextField(blank=True, null=True, default='Da Nang')
-    date_of_birth = models.DateField(null=True, blank=True, )
-    class_id = models.ForeignKey('Class', on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
-    update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
-    delete_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name
 
 class Class(models.Model):
-    id = models.CharField(primary_key=True, unique=True, null=False, blank=False)
-    name = models.CharField(max_length=255, null=False, blank=False)
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False, unique=True
+    )
+    major = models.ForeignKey(Major, on_delete=models.CASCADE, null=True, blank=True)
+    name = models.CharField(max_length=100, unique=True, null=True, blank=True)
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
-    delete_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name
 
 class Room(models.Model):
-    id = models.IntegerField(primary_key=True, unique=True, null=False, blank=False)
-    name = models.CharField(max_length=255)
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False, unique=True
+    )
+    name = models.CharField(max_length=100, unique=True, null=False, blank=False)
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
-    delete_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name
     
+    # 
+class PeriodDefinition(models.Model):
+    id = models.AutoField(primary_key=True)
+    SHIFT_CHOICES = [
+    ('morning', 'Buổi sáng'),
+    ('afternoon', 'Buổi chiều'),
+    ('evening', 'Buổi tối'),
+    ]
+    name = models.CharField(max_length=20)  # Ví dụ: "Ca 1"
+    shift = models.CharField(max_length=10, choices=SHIFT_CHOICES)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
 
+    def __str__(self):
+        return f"{self.name} ({self.get_shift_display()}) [{self.start_time} - {self.end_time}]"
+class Schedule(models.Model):
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False, unique=True
+    )
+    date = models.DateField(default=timezone.now, null=True, blank=True)
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    classes = models.ForeignKey(Class, on_delete=models.CASCADE, null=True, blank=True)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, null=True, blank=True)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, null=True, blank=True)
+    period = models.ForeignKey(PeriodDefinition, on_delete=models.CASCADE, null=True, blank=True)
+    class Meta:
+        unique_together = ['date', 'room', 'period']
+
+    def __str__(self):
+        return f"{self.date} - {self.classes} - {self.period.name}"
+
+class TeacherMajor(models.Model):
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="teacher_major")
+    major = models.ForeignKey(Major, on_delete=models.CASCADE, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
+    # class Meta:
+    #     unique_together = ('teacher', 'major')
 class TeacherSubject(models.Model):
-    teacher_id = models.ForeignKey(Teacher, on_delete=models.CASCADE)
-    subject_id = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="teacher_subject")
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
-    delete_at = models.DateTimeField(null=True, blank=True)
-class StudentSubject(models.Model):
-    student_id = models.ForeignKey(Student, on_delete=models.CASCADE)
-    subject_id = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    # class Meta:
+    #     unique_together = ('teacher', 'subject')
+class TeacherClass(models.Model):
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="teacher_class_name")
+    classes = models.ForeignKey(Class, on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
-    delete_at = models.DateTimeField(null=True, blank=True)
-class RoomSubject(models.Model):
-    room_id = models.ForeignKey(Room, on_delete=models.CASCADE)
-    subject_id = models.ForeignKey(Subject, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
-    update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
-    delete_at = models.DateTimeField(null=True, blank=True)
-    
-class ClassTeacher(models.Model):
-    class_id = models.ForeignKey(Class, on_delete=models.CASCADE)
-    teacher_id = models.ForeignKey(Teacher, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
-    update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
-    delete_at = models.DateTimeField(null=True, blank=True)
-class ClassSubject(models.Model):
-    class_id = models.ForeignKey(Class, on_delete=models.CASCADE)
-    subject_id = models.ForeignKey(Subject, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
-    update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
-    delete_at = models.DateTimeField(null=True, blank=True)
-class ClassRoom(models.Model):
-    class_id = models.ForeignKey(Class, on_delete=models.CASCADE)
-    room_id = models.ForeignKey(Room, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
-    update_at = models.DateTimeField(auto_now=True, null=True, blank=True)
-    delete_at = models.DateTimeField(null=True, blank=True)
+    # class Meta:
+    #     unique_together = ('teacher', 'classes')
