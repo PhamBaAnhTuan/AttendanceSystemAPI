@@ -36,6 +36,7 @@ class AttendanceSerializer(serializers.ModelSerializer):
 class AttendanceSessionSerializer(serializers.ModelSerializer):
     attendances = AttendanceSerializer(many=True, read_only=True)
     attendance_count = serializers.SerializerMethodField()
+    # created_by_name = serializers.SerializerMethodField()
     
     class Meta:
         model = AttendanceSession
@@ -44,3 +45,21 @@ class AttendanceSessionSerializer(serializers.ModelSerializer):
     
     def get_attendance_count(self, obj):
         return obj.attendances.count()
+    
+class VideoAttendanceSerializer(serializers.Serializer):
+    video = serializers.FileField(required=True)
+    
+    def validate_video(self, value):
+        # Validate file extension
+        allowed_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.wmv']
+        file_extension = value.name.split('.')[-1].lower()
+        if f'.{file_extension}' not in allowed_extensions:
+            raise serializers.ValidationError(
+                f"Invalid video format. Allowed formats: {', '.join(allowed_extensions)}"
+            )
+        
+        # Validate file size (max 100MB)
+        if value.size > 100 * 1024 * 1024:
+            raise serializers.ValidationError("Video file too large. Maximum size is 100MB.")
+        
+        return value

@@ -331,3 +331,194 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             
         except AttendanceSession.DoesNotExist:
             return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+    @action(detail=True, methods=['post'])
+    def take_attendance_video(self, request, pk=None):
+        """Process a video to detect faces and mark attendance"""
+        try:
+            session = self.get_object()
+            
+            if not session.is_active:
+                return Response({"error": "Cannot take attendance: session is not active"}, 
+                               status=status.HTTP_400_BAD_REQUEST)
+            
+            if 'video' not in request.FILES:
+                return Response({"error": "No video provided"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            uploaded_video = request.FILES['video']
+            
+            # Validate video file
+            allowed_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.wmv']
+            file_extension = os.path.splitext(uploaded_video.name)[1].lower()
+            if file_extension not in allowed_extensions:
+                return Response({"error": f"Invalid video format. Allowed: {', '.join(allowed_extensions)}"}, 
+                               status=status.HTTP_400_BAD_REQUEST)
+            
+            # Save the uploaded video temporarily
+            temp_filename = f"attendance_video_{uuid.uuid4().hex}{file_extension}"
+            temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp')
+            os.makedirs(temp_dir, exist_ok=True)
+            temp_video_path = os.path.join(temp_dir, temp_filename)
+            
+            with open(temp_video_path, 'wb+') as destination:
+                for chunk in uploaded_video.chunks():
+                    destination.write(chunk)
+            
+            try:
+                # Process the video to recognize faces
+                recognized_faces, error = self.process_video_for_attendance(temp_video_path, session)
+                
+                if error and not recognized_faces:
+                    return Response({"error": error}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Track successfully marked attendance
+                marked_students = []
+                
+                # Mark attendance for each recognized face
+                for face_data in recognized_faces:
+                    try:
+                        student = Student.objects.get(id=face_data['student_id'])
+                        
+                        # Create or update attendance record
+                        attendance, created = Attendance.objects.update_or_create(
+                            session=session,
+                            student=student,
+                            defaults={
+                                'confidence': face_data['confidence'],
+                                'capture_image': face_data.get('best_frame_path', None)
+                            }
+                        )
+                        
+                        marked_students.append({
+                            'student_id': student.id,
+                            'student_name': student.name,
+                            'class_id': student.class_id.id if student.class_id else None,
+                            'confidence': face_data['confidence'],
+                            'already_marked': not created,
+                            'frame_count': face_data.get('frame_count', 1)
+                        })
+                        
+                    except Student.DoesNotExist:
+                        # Skip if student doesn't exist
+                        continue
+                    except IntegrityError:
+                        # Already marked attendance for this student
+                        continue
+                
+                # Return the results
+                return Response({
+                    'session_id': session.id,
+                    'session_name': session.session_name,
+                    'video_filename': uploaded_video.name,
+                    'total_frames_processed': sum([f.get('frame_count', 1) for f in recognized_faces]),
+                    'recognized_count': len(recognized_faces),
+                    'marked_students': marked_students
+                })
+                
+            finally:
+                # Clean up temporary video file
+                if os.path.exists(temp_video_path):
+                    os.remove(temp_video_path)
+                    
+        except AttendanceSession.DoesNotExist:
+            return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    def process_video_for_attendance(self, video_path, session):
+        """Process video frames to detect and recognize faces"""
+        try:
+            import cv2
+            import tempfile
+            
+            # Open video
+            cap = cv2.VideoCapture(video_path)
+            
+            if not cap.isOpened():
+                return [], "Could not open video file"
+            
+            frame_rate = int(cap.get(cv2.CAP_PROP_FPS))
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            
+            # Process every nth frame to optimize performance
+            frame_skip = max(1, frame_rate // 2)  # Process 2 frames per second
+            
+            face_detections = {}  # Dictionary to store detections per student
+            frame_count = 0
+            
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                    
+                frame_count += 1
+                
+                # Skip frames for performance
+                if frame_count % frame_skip != 0:
+                    continue
+                
+                # Save frame temporarily for face recognition
+                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as temp_frame:
+                    cv2.imwrite(temp_frame.name, frame)
+                    temp_frame_path = temp_frame.name
+                
+                try:
+                    # Recognize faces in this frame
+                    frame_results, error = recognize_faces_in_image(temp_frame_path)
+                    
+                    if frame_results:
+                        for face_data in frame_results:
+                            student_id = face_data['student_id']
+                            confidence = face_data['confidence']
+                            
+                            if student_id not in face_detections:
+                                face_detections[student_id] = {
+                                    'student_id': student_id,
+                                    'student_name': face_data['student_name'],
+                                    'max_confidence': confidence,
+                                    'frame_count': 1,
+                                    'best_frame_path': None
+                                }
+                                
+                                # Save the best frame for this detection
+                                best_frame_filename = f"attendance_{session.id}_{student_id}_video.jpg"
+                                best_frame_path = os.path.join(settings.MEDIA_ROOT, 'images/attendance', best_frame_filename)
+                                os.makedirs(os.path.dirname(best_frame_path), exist_ok=True)
+                                
+                                import shutil
+                                shutil.copy(temp_frame_path, best_frame_path)
+                                face_detections[student_id]['best_frame_path'] = f'images/attendance/{best_frame_filename}'
+                            else:
+                                face_detections[student_id]['frame_count'] += 1
+                                # Update if this frame has higher confidence
+                                if confidence > face_detections[student_id]['max_confidence']:
+                                    face_detections[student_id]['max_confidence'] = confidence
+                                    
+                                    # Update best frame
+                                    best_frame_filename = f"attendance_{session.id}_{student_id}_video.jpg"
+                                    best_frame_path = os.path.join(settings.MEDIA_ROOT, 'images/attendance', best_frame_filename)
+                                    
+                                    import shutil
+                                    shutil.copy(temp_frame_path, best_frame_path)
+                
+                finally:
+                    # Clean up temporary frame
+                    if os.path.exists(temp_frame_path):
+                        os.remove(temp_frame_path)
+            
+            cap.release()
+            
+            # Convert to list format with confidence as max_confidence
+            results = []
+            for detection in face_detections.values():
+                results.append({
+                    'student_id': detection['student_id'],
+                    'student_name': detection['student_name'],
+                    'confidence': detection['max_confidence'],
+                    'frame_count': detection['frame_count'],
+                    'best_frame_path': detection['best_frame_path']
+                })
+            
+            return results, None
+            
+        except Exception as e:
+            return [], f"Error processing video: {str(e)}"
+        
