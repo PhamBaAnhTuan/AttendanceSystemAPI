@@ -3,7 +3,8 @@ from user.models import User
 from .models import (
    Faculty, Major,
    Subject, Class, Room,
-   TeacherMajor, TeacherClass, TeacherSubject,
+   TeacherMajor, TeacherClass, TeacherSubject, TeacherClassSubject,
+   StudentClass,
    Schedule, PeriodDefinition,
 )
 from user.models import User
@@ -36,9 +37,19 @@ class MajorShortSerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 class SubjectSerializer(serializers.ModelSerializer):
+    # get field
+    major = MajorSerializer(read_only=True)
+    # post field
+    major_id = serializers.PrimaryKeyRelatedField(
+        queryset=Major.objects.all(),
+        source='major',
+        required=True,
+        write_only=True,
+        allow_null=True,
+    )
     class Meta:
         model = Subject
-        fields = '__all__'
+        fields = ['id', 'name', 'major', 'major_id', 'credit', 'description']
 class SubjectShortSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
@@ -138,6 +149,38 @@ class TeacherClassSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("This teacher is already assigned to this class.")
 
         return attrs
+# 
+class StudentClassSerializer(serializers.ModelSerializer):
+    # filter field
+    student = TeacherShortSerializer(read_only=True)
+    classes = ClassShortSerializer(read_only=True)
+    # post field
+    student_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source='student',
+        required=True,
+        write_only=True,
+        allow_null=True,
+    )
+    class_id = serializers.PrimaryKeyRelatedField(
+        queryset=Class.objects.all(),
+        source='classes',
+        required=True,
+        write_only=True,
+        allow_null=True,
+    )
+    class Meta:
+        model = StudentClass
+        fields = ['id', 'student_id', 'class_id', 'student', 'classes']
+    
+    def validate(self, attrs):
+        student = attrs.get('student')
+        classes = attrs.get('classes')
+
+        if StudentClass.objects.filter(student=student, classes=classes).exists():
+            raise serializers.ValidationError("This student is already assigned to this class.")
+
+        return attrs
 
 class TeacherSubjectSerializer(serializers.ModelSerializer):
     # filter field
@@ -168,6 +211,47 @@ class TeacherSubjectSerializer(serializers.ModelSerializer):
 
         if TeacherSubject.objects.filter(teacher=teacher, subject=subject).exists():
             raise serializers.ValidationError("This teacher is already assigned to this subject.")
+
+        return attrs
+    
+class TeacherClassSubjectSerializer(serializers.ModelSerializer):
+    # filter field
+    teacher = TeacherShortSerializer(read_only=True)
+    classes = ClassShortSerializer(read_only=True)
+    subject = SubjectShortSerializer(read_only=True)
+    # post field
+    teacher_id = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        source='teacher',
+        required=True,
+        write_only=True,
+        allow_null=True,
+    )
+    class_id = serializers.PrimaryKeyRelatedField(
+        queryset=Class.objects.all(),
+        source='classes',
+        required=True,
+        write_only=True,
+        allow_null=True,
+    )
+    subject_id = serializers.PrimaryKeyRelatedField(
+        queryset=Subject.objects.all(),
+        source='subject',
+        required=True,
+        write_only=True,
+        allow_null=True,
+    )
+    class Meta:
+        model = TeacherClassSubject
+        fields = ['id', 'teacher_id', 'class_id', 'subject_id', 'teacher', 'classes', 'subject']
+    
+    def validate(self, attrs):
+        teacher = attrs.get('teacher')
+        classes = attrs.get('classes')
+        subject = attrs.get('subject')
+
+        if TeacherClassSubject.objects.filter(teacher=teacher, classes=classes, subject=subject).exists():
+            raise serializers.ValidationError("This teacher is already assigned to this subject in this class.")
 
         return attrs
         

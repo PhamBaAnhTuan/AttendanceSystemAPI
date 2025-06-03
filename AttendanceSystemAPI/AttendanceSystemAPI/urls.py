@@ -26,6 +26,7 @@ urlpatterns = [
     path('user/', include('user.urls')),
     path('api/', include('subject.urls')),
     path('roles/', include('roles.urls')),
+    path('face_recog/', include('face_recog.urls')),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
     # path('attendance/', include('attendance.urls')),

@@ -13,23 +13,33 @@ class TokenHasActionScope(TokenMatchesOASRequirements):
         
         if hasattr(token, "scope"):
             required_alternate_scopes = self.get_required_alternate_scopes(request, view)
-            # print(f"Scope: {required_alternate_scopes}")
 
-            m = view.action.lower()
-            if m in required_alternate_scopes:
-                log.debug(
-                    "Required scopes alternatives to access resource: {0}".format(
-                        required_alternate_scopes[m]
-                    )
-                )
-                for alt in required_alternate_scopes[m]:
+            # m = view.action.lower()
+            # if m in required_alternate_scopes:
+            #     log.debug(
+            #         "Required scopes alternatives to access resource: {0}".format(
+            #             required_alternate_scopes[m]
+            #         )
+            #     )
+            #     for alt in required_alternate_scopes[m]:
+            #         if token.is_valid(alt):
+            #             return True
+            #     return False
+            # else:
+            #     log.warning("no scope alternates defined for method {0}".format(m))
+            #     return False
+            action = getattr(view, 'action', None)
+            if action is None:
+                action = request.method.lower()
+                print(f"Action is None, using request method: {action}")
+
+            if action in required_alternate_scopes:
+                for alt in required_alternate_scopes[action]:
                     if token.is_valid(alt):
                         return True
                 return False
             else:
-                log.warning("no scope alternates defined for method {0}".format(m))
                 return False
-            
         assert False, (
             "TokenHasActionScope requires the"
             "`oauth.rest_framework.OAuth2Authentication` authentication "

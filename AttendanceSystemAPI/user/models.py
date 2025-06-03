@@ -11,15 +11,13 @@ class User(AbstractBaseUser, PermissionsMixin):
    id = models.UUIDField(
       primary_key=True, default=uuid.uuid4, editable=False, unique=True
    )
-   fullname = models.CharField(max_length=255, unique=True, null=True, blank=True)
-   # username = models.CharField(max_length=255, unique=True, null=True)
+   fullname = models.CharField(max_length=255, null=True, blank=True)
    email = models.EmailField(max_length=255, unique=True, null=True)
    password = models.CharField(max_length=255)
    phone_number = models.CharField(max_length=20,null=True, unique=True)
    address = models.TextField(blank=True, null=True, default='Da Nang')
    date_of_birth = models.DateField(null=True, blank=True)
    avatar = models.ImageField(upload_to='images/',null=True, blank=True)
-   # classes = models.ForeignKey('subject.Class', on_delete=models.SET_NULL, null=True, blank=True)
    role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True)
    is_active = models.BooleanField(default=True)
    is_staff = models.BooleanField(default=False)

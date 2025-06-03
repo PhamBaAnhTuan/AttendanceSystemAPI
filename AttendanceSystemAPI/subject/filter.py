@@ -3,6 +3,7 @@ class TeacherFilterBackend:
         filters = {}
 
         teacher_id = request.query_params.get('teacher_id')
+        student_id = request.query_params.get('student_id')
         major_id = request.query_params.get('major_id')
         subject_id = request.query_params.get('subject_id')
         class_id = request.query_params.get('class_id')
@@ -12,6 +13,8 @@ class TeacherFilterBackend:
             filters['major_id'] = major_id
         if teacher_id:
             filters['teacher_id'] = teacher_id
+        if student_id:
+            filters['student_id'] = student_id
         if subject_id:
             filters['subject_id'] = subject_id
         if class_id:

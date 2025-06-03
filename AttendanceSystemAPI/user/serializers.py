@@ -18,7 +18,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'fullname', 'email', 'password', 'phone_number', 'address', 'date_of_birth', 'avatar', 'role', 'role_id']
+        # fields = ['id', 'fullname', 'email', 'password', 'phone_number', 'address', 'date_of_birth', 'avatar', 'role', 'role_id']
+        fields = '__all__'
         
     # def update(self, instance, validated_data):
     #     request = self.context.get("request")

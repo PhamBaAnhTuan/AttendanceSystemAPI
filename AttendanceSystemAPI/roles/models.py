@@ -2,7 +2,6 @@ from django.db import models
 import uuid
 from django.utils import timezone
 
-# Create your models here.
 class Role(models.Model):
    id = models.CharField(
       max_length=10, primary_key=True, editable=False, unique=True

@@ -50,20 +50,12 @@ class UserViewSet(BaseViewSet, OAuthLibMixin):
 
     def get_queryset(self):
         user = self.request.user
-
-        # 1. Người dùng chưa đăng nhập
         if not user or not user.is_authenticated:
             raise NotAuthenticated("You must be signin in to access this resource!")
-
-        # 2. Người dùng không có role
         if not hasattr(user, 'role') or user.role is None:
             raise PermissionDenied("You do not have a role assigned!")
-
-        # 3. Người dùng là admin
         if user.role.name == "admin":
             return User.objects.all()
-
-        # 4. Người dùng thường → chỉ được xem chính họ
         return User.objects.filter(id=user.id)
 
     @action(methods=['post'], detail=False, url_path="signup", permission_classes=[AllowAny])
