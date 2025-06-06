@@ -84,12 +84,6 @@ OAUTH2_PROVIDER = {
 }
 
 AUTH_USER_MODEL = 'user.User'
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = config('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
 WSGI_APPLICATION = 'AttendanceSystemAPI.wsgi.application'
 # ASGI_APPLICATION = 'AttendanceSystemAPI.asgi.application'
@@ -110,6 +104,17 @@ else:
             "OPTIONS": {"charset": "utf8mb4"},
         }
     }
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': config("DATABASE_NAME"),
+#         'USER': config("DATABASE_USER"),
+#         'PASSWORD': config("DATABASE_PASSWORD"),
+#         'HOST': 'localhost',
+#         'PORT': '3306',
+#         "OPTIONS": {"charset": "utf8mb4"},
+#     }
+# }
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
