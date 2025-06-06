@@ -2,9 +2,10 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 User = get_user_model()
+from subject.models import Class, Subject
 
 class FaceTrainingSession(models.Model):
-   student = models.ForeignKey(User, on_delete=models.CASCADE)
+   student = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='face_training_sessions')
    created_at = models.DateTimeField(auto_now_add=True)
    completed = models.BooleanField(default=False)
    
@@ -25,14 +26,17 @@ class AttendanceSession(models.Model):
    start_time = models.DateTimeField(auto_now_add=True)
    end_time = models.DateTimeField(null=True, blank=True)
    is_active = models.BooleanField(default=True)
+   
    created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+   classes = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, blank=True, related_name='attendance_sessions')
+   subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True, related_name='attendance_sessions')
    
    def __str__(self):
       return f"{self.session_name} - {self.start_time}"
 
 class Attendance(models.Model):
-   session = models.ForeignKey(AttendanceSession, on_delete=models.CASCADE, related_name='attendances')
-   student = models.ForeignKey(User, on_delete=models.CASCADE)
+   session = models.ForeignKey(AttendanceSession, on_delete=models.CASCADE, null=True, blank=True, related_name='attendances')
+   student = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
    timestamp = models.DateTimeField(auto_now_add=True)
    confidence = models.FloatField(default=0.0)  # Confidence score of face recognition
    capture_image = models.ImageField(upload_to='images/attendance/', null=True, blank=True)

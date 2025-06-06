@@ -18,26 +18,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        # fields = ['id', 'fullname', 'email', 'password', 'phone_number', 'address', 'date_of_birth', 'avatar', 'role', 'role_id']
         fields = '__all__'
-        
-    # def update(self, instance, validated_data):
-    #     request = self.context.get("request")
-    #     user = request.user if request else None
-
-    #     if user and user.role and user.role.name == "admin":
-    #         role = validated_data.get("role", None)
-    #         is_active = validated_data.get("is_active", None)
-    #         validated_data.clear()
-    #         if role is not None:
-    #             validated_data["role"] = role
-    #         if is_active is not None:
-    #             validated_data["is_active"] = is_active
-    #     else:
-    #         validated_data.pop("role", None)
-    #         validated_data.pop("is_active", None)
-
-    #     return super().update(instance, validated_data)
+        # exclude = ['face_encodings', 'is_superuser', 'is_staff', 'created_at', 'updated_at']
 
     
 class UserInfoSerializer(serializers.ModelSerializer):
@@ -52,3 +34,8 @@ class UserInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'fullname', 'email', 'phone_number', 'address', 'date_of_birth', 'avatar', 'role']
+class UserInfoShortSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = ['id', 'fullname']

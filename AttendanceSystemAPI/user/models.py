@@ -19,6 +19,7 @@ class User(AbstractBaseUser, PermissionsMixin):
    date_of_birth = models.DateField(null=True, blank=True)
    avatar = models.ImageField(upload_to='images/',null=True, blank=True)
    role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True)
+   face_encodings = models.JSONField(null=True, blank=True)
    is_active = models.BooleanField(default=True)
    is_staff = models.BooleanField(default=False)
    created_at = models.DateTimeField(default=timezone.now)

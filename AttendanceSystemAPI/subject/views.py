@@ -131,15 +131,6 @@ class RoomViewSet(BaseViewSet, OAuthLibMixin):
       "update": [["admin"]],
       "destroy": [["admin"]],
    }
-   def get_queryset(self):
-      user = self.request.user
-      if not user or not user.is_authenticated:
-         raise NotAuthenticated("You must be signin in to access this resource!")
-      if not hasattr(user, 'role') or user.role is None:
-         raise PermissionDenied("You do not have a role assigned!")
-      if user.role.name == "admin":
-         return Room.objects.all()
-      return Room.objects.filter(teacher_id=user.id)
    
 class TeacherMajorViewSet(BaseViewSet, OAuthLibMixin):
    queryset = TeacherMajor.objects.all()
@@ -307,15 +298,15 @@ class StudentClassViewSet(BaseViewSet, OAuthLibMixin):
       "update": [["admin"]],
       "destroy": [["admin"]],
    }
-   def get_queryset(self):
-      user = self.request.user
-      if not user or not user.is_authenticated:
-         raise NotAuthenticated("You must be signin in to access this resource!")
-      if not hasattr(user, 'role') or user.role is None:
-         raise PermissionDenied("You do not have a role assigned!")
-      if user.role.name == "admin":
-         return StudentClass.objects.all()
-      return StudentClass.objects.filter(student_id=user.id)
+   # def get_queryset(self):
+   #    user = self.request.user
+   #    if not user or not user.is_authenticated:
+   #       raise NotAuthenticated("You must be signin in to access this resource!")
+   #    if not hasattr(user, 'role') or user.role is None:
+   #       raise PermissionDenied("You do not have a role assigned!")
+   #    if user.role.name == "admin":
+   #       return StudentClass.objects.all()
+   #    return StudentClass.objects.filter(student_id=user.id)
      
    def create(self, request, *args, **kwargs):
       many = isinstance(request.data, list)

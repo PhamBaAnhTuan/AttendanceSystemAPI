@@ -21,7 +21,9 @@ from rest_framework.exceptions import NotAuthenticated, PermissionDenied
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
-class FaceTrainingAPIView(BaseViewSet, OAuthLibMixin):
+from .filter import SessionFilterBackend
+
+class FaceTrainingAPIView(viewsets.ViewSet):
    required_alternate_scopes = {
       "list": [["admin"], ["teacher"], ["student"]],
       "retrieve": [["admin"], ["teacher"], ["student"]],
@@ -29,31 +31,25 @@ class FaceTrainingAPIView(BaseViewSet, OAuthLibMixin):
       "update": [["admin"]],
       "destroy": [["admin"]],
    }
-   def get_queryset(self):
-      user = self.request.user
-      if not user or not user.is_authenticated:
-         raise NotAuthenticated("You must be signin in to access this resource!")
-      if not hasattr(user, 'role') or user.role is None:
-         raise PermissionDenied("You do not have a role assigned!")
-      if user.role.name == "admin":
-         return FaceTrainingSession.objects.all()
-      return FaceTrainingSession.objects.filter(id=user.id)
-    
+   
    def extract_student_info_from_filename(self, filename):
-      """Extract student ID and position from filename format Student_ID_name_position.png"""
-      # pattern = r'{Student}_(\d+)_([^_]+)_(.+)\.(png|jpg|jpeg|bmp|gif|webp)'
-      pattern = r'^Student_(\d+)_([^_]+)_(.+)\.(png|jpg|jpeg|bmp|gif|webp)$'
+      pattern = r'(?i)^Student_([0-9a-fA-F\-]{36})_(.+)_(.+)\.(png|jpg|jpeg|bmp|gif|webp)$'
       match = re.match(pattern, filename)
+
+      if not match:
+         return None, None, None
+
+      student_id = match.group(1)
+      full_and_position = match.group(2)
+      position = match.group(3)
+
+      # Khử dấu gạch dưới nếu fullname có dấu _
+      student_name = full_and_position.replace('_', ' ')
       
-      if match:
-         student_id = match.group(1)
-         student_name = match.group(2)
-         position = match.group(3)  # e.g., left, right, front, etc.
-         return student_id, student_name, position
-      
-      return None, None, None
+      return student_id, student_name, position
+
     
-   @action(detail=False, methods=['post'])
+   @action(detail=False, methods=['post'], url_path='train')
    def train(self, request):
       """API endpoint to train face recognition with 5 images"""
       serializer = TrainingRequestSerializer(data=request.data)
@@ -76,7 +72,7 @@ class FaceTrainingAPIView(BaseViewSet, OAuthLibMixin):
                
                if not student_id or not position:
                   return Response({
-                     "error": f"Invalid filename format for {filename}. Expected format: Student_ID_name_position.png"
+                     "error": f"Invalid filename format for {filename}. Expected format: student_ID_fullname_position.png"
                   }, status=status.HTTP_400_BAD_REQUEST)
                
                # Add to images by student dictionary
@@ -107,13 +103,13 @@ class FaceTrainingAPIView(BaseViewSet, OAuthLibMixin):
       
       # Get or create student
       try:
-         student = User.objects.get(id=int(student_id))
+         student = User.objects.get(id=uuid.UUID(student_id))
       except User.DoesNotExist:
          # If student doesn't exist but we have student_name from filename, create a new student
          student_name = list(student_images.values())[0]['student_name']
          student = User.objects.create(
-               id=int(student_id),
-               name=student_name
+               id=uuid.UUID(student_id),
+               fullname=student_name
          )
       
       # Create training session
@@ -163,12 +159,12 @@ class FaceTrainingAPIView(BaseViewSet, OAuthLibMixin):
 
       positions_processed = []
       for position in student_images.keys():
-         formatted_position = f"Student_{student.id}_{student.name}_{position}"
+         formatted_position = f"student_{student.id}_{student.fullname}_{position}"
          positions_processed.append(formatted_position)
       response_data = {
          "message": "Face training completed successfully",
          "student_id": student.id,
-         "student_name": student.name,
+         "student_name": student.fullname,
          "session_id": session.id,
          "positions_processed": positions_processed
       }
@@ -178,7 +174,7 @@ class FaceTrainingAPIView(BaseViewSet, OAuthLibMixin):
          response_data["warning"] = message
       return Response(response_data, status=status.HTTP_201_CREATED)
 
-   @action(detail=False, methods=['get'])
+   @action(detail=False, methods=['get'], url_path='status')
    def status(self, request):
       """Check face training status for a student"""
       student_id = request.query_params.get('student_id')
@@ -197,7 +193,7 @@ class FaceTrainingAPIView(BaseViewSet, OAuthLibMixin):
          
          return Response({
                "student_id": student.id,
-               "student_name": student.name,
+               "student_name": student.fullname,
                "has_face_data": has_face_data,
                "last_training": last_session.created_at if last_session else None
          })
@@ -205,41 +201,24 @@ class FaceTrainingAPIView(BaseViewSet, OAuthLibMixin):
       except User.DoesNotExist:
          return Response({"error": f"Student with ID {student_id} not found"}, 
                            status=status.HTTP_404_NOT_FOUND)
-        
+
 class AttendanceViewSet(viewsets.ModelViewSet):
    queryset = AttendanceSession.objects.all()
    serializer_class = AttendanceSessionSerializer
-   # required_alternate_scopes = {
-   #    "list": [["admin"], ["teacher"], ["student"]],
-   #    "retrieve": [["admin"], ["teacher"], ["student"]],
-   #    "create": [["admin"]],
-   #    "update": [["admin"]],
-   #    "destroy": [["admin"]],
-   #    "end_session": [["admin"], ["teacher"]],
-   #    "take_attendance": [["admin"], ["teacher"]],
-   # }
-   def get_queryset(self):
-      user = self.request.user
-      if not user or not user.is_authenticated:
-         raise NotAuthenticated("You must be signin in to access this resource!")
-      if not hasattr(user, 'role') or user.role is None:
-         raise PermissionDenied("You do not have a role assigned!")
-      if user.role.name == "admin":
-         return AttendanceSession.objects.all()
-      return AttendanceSession.objects.filter(id=user.id)
+   filter_backends=[SessionFilterBackend]
    
-   def create(self, request):
-      """Create a new attendance session"""
-      serializer = self.get_serializer(data=request.data)
-      serializer.is_valid(raise_exception=True)
+   # def create(self, request):
+   #    """Create a new attendance session"""
+   #    serializer = self.get_serializer(data=request.data)
+   #    serializer.is_valid(raise_exception=True)
       
-      # Create the session
-      session = AttendanceSession.objects.create(
-         session_name=serializer.validated_data['session_name'],
-         created_by=request.user if request.user.is_authenticated else None,
-      )
+   #    # Create the session
+   #    session = AttendanceSession.objects.create(
+   #       session_name=serializer.validated_data['session_name'],
+   #       created_by=request.user if request.user.is_authenticated else None,
+   #    )
       
-      return Response(self.get_serializer(session).data, status=status.HTTP_201_CREATED)
+   #    return Response(self.get_serializer(session).data, status=status.HTTP_201_CREATED)
     
    @action(detail=True, methods=['post'], url_path='end-session')
    def end_session(self, request, pk=None):
@@ -259,7 +238,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
       except AttendanceSession.DoesNotExist:
          return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
    
-   @action(detail=True, methods=['post'], url_path='take-attendance')
+   @action(detail=True, methods=['post'])
    def take_attendance(self, request, pk=None):
       """Process an image to detect faces and mark attendance"""
       try:
@@ -297,8 +276,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                # Mark attendance for each recognized face
                for face_data in recognized_faces:
                   try:
-                     student = Student.objects.get(id=face_data['student_id'])
-                     
+                     student = User.objects.get(id=face_data['student_id'])
                      # Save the image for this attendance record
                      attendance_image_name = f"attendance_{session.id}_{student.id}.png"
                      attendance_image_path = os.path.join(settings.MEDIA_ROOT, 'images/attendance', attendance_image_name)
@@ -320,13 +298,12 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                      
                      marked_students.append({
                            'student_id': student.id,
-                           'student_name': student.name,
+                           'student_name': student.fullname,
                            'confidence': face_data['confidence'],
                            'already_marked': not created,
-                           'class_id': student.class_id.id if student.class_id else None,
                      })
                      
-                  except Student.DoesNotExist:
+                  except User.DoesNotExist:
                      # Skip if student doesn't exist
                      continue
                   except IntegrityError:
@@ -340,7 +317,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                   'recognized_count': len(recognized_faces),
                   'marked_students': marked_students
                })
-               
+                
          finally:
                # Clean up temporary file
                if os.path.exists(temp_path):
@@ -349,7 +326,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
       except AttendanceSession.DoesNotExist:
          return Response({"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
    
-   @action(detail=True, methods=['get'], url_path='stats')
+   @action(detail=True, methods=['get'])
    def stats(self, request, pk=None):
       """Get statistics for an attendance session"""
       try:
@@ -414,7 +391,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                # Mark attendance for each recognized face
                for face_data in recognized_faces:
                   try:
-                     student = Student.objects.get(id=face_data['student_id'])
+                     student = User.objects.get(id=face_data['student_id'])
                      
                      # Create or update attendance record
                      attendance, created = Attendance.objects.update_or_create(
@@ -428,14 +405,14 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                      
                      marked_students.append({
                            'student_id': student.id,
-                           'student_name': student.name,
+                           'student_name': student.fullname,
                            'class_id': student.class_id.id if student.class_id else None,
                            'confidence': face_data['confidence'],
                            'already_marked': not created,
                            'frame_count': face_data.get('frame_count', 1)
                      })
                      
-                  except Student.DoesNotExist:
+                  except User.DoesNotExist:
                      # Skip if student doesn't exist
                      continue
                   except IntegrityError:

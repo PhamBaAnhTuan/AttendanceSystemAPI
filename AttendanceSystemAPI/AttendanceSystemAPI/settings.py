@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
-# import dj_database_url
+import dj_database_url
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -94,22 +94,22 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 WSGI_APPLICATION = 'AttendanceSystemAPI.wsgi.application'
 # ASGI_APPLICATION = 'AttendanceSystemAPI.asgi.application'
 
-# if config("DEPLOY", cast=bool): 
-#     DATABASES = {
-#         'default': dj_database_url.config(default=config("DATABASE_URL"))
-#     }
-# else:
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': config("DATABASE_NAME"),
-        'USER': config("DATABASE_USER"),
-        'PASSWORD': config("DATABASE_PASSWORD"),
-        'HOST': 'localhost',
-        'PORT': '3306',
-        "OPTIONS": {"charset": "utf8mb4"},
+if config("DEPLOY", cast=bool): 
+    DATABASES = {
+        'default': dj_database_url.config(default=config("DATABASE_URL"))
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': config("DATABASE_NAME"),
+            'USER': config("DATABASE_USER"),
+            'PASSWORD': config("DATABASE_PASSWORD"),
+            'HOST': 'localhost',
+            'PORT': '3306',
+            "OPTIONS": {"charset": "utf8mb4"},
+        }
+    }
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',

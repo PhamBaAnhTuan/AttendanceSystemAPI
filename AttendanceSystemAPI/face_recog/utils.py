@@ -63,8 +63,8 @@ def recognize_faces_in_image(image_path):
       face_encodings = face_recognition.face_encodings(image, face_locations)
       
       # Load all students with face data
-      from attendance.models import Student
-      students = Student.objects.exclude(face_encodings__isnull=True)
+      from user.models import User
+      students = User.objects.exclude(face_encodings__isnull=True)
       
       results = []
       
@@ -91,7 +91,7 @@ def recognize_faces_in_image(image_path):
          if best_match:
                results.append({
                   'student_id': best_match.id,
-                  'student_name': best_match.name,
+                  'student_name': best_match.fullname,
                   'confidence': best_confidence
                })
       
