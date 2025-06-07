@@ -88,7 +88,8 @@ AUTH_USER_MODEL = 'user.User'
 WSGI_APPLICATION = 'AttendanceSystemAPI.wsgi.application'
 # ASGI_APPLICATION = 'AttendanceSystemAPI.asgi.application'
 
-if config("DEPLOY", cast=bool): 
+if config("DEPLOY", cast=bool):
+    print(f'Deploy: {config("DEPLOY")}')
     DATABASES = {
         'default': dj_database_url.config(default=config("DATABASE_URL"))
     }

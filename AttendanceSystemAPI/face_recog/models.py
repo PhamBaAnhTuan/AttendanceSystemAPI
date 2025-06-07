@@ -14,7 +14,7 @@ class FaceTrainingSession(models.Model):
 
 class FaceImage(models.Model):
    session = models.ForeignKey(FaceTrainingSession, related_name='images', on_delete=models.CASCADE)
-   image = models.ImageField(upload_to='images/face_training/')
+   image = models.ImageField()
    position = models.CharField(max_length=20)  # left, right, front, etc.
    uploaded_at = models.DateTimeField(auto_now_add=True)
    
@@ -39,7 +39,7 @@ class Attendance(models.Model):
    student = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
    timestamp = models.DateTimeField(auto_now_add=True)
    confidence = models.FloatField(default=0.0)  # Confidence score of face recognition
-   capture_image = models.ImageField(upload_to='images/attendance/', null=True, blank=True)
+   capture_image = models.ImageField(null=True, blank=True)
    
    class Meta:
       unique_together = ('session', 'student')  # Một sinh viên chỉ được điểm danh một lần trong một phiên
