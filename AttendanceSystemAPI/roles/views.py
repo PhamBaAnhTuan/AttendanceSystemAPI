@@ -5,7 +5,7 @@ from .models import Role
 from .serializer import RoleSerializer
 
 class RoleViewSet(ModelViewSet):
+    permission_classes=[AllowAny]
     queryset = Role.objects.all()
     serializer_class = RoleSerializer
-    # permission_classes=[AllowAny]
-    required_alternate_scopes = {action: [["admin"]] for action in ["list", "retrieve"]}
+    # required_alternate_scopes = {action: [["admin"]] for action in ["list", "retrieve"]}

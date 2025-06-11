@@ -50,7 +50,6 @@ INSTALLED_APPS = [
     'corsheaders',
     
     'subject',
-    'attendance',
     'roles',
     'face_recog',
 ]
@@ -60,8 +59,8 @@ REST_FRAMEWORK = {
         "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
-        # "AttendanceSystemAPI.permission.TokenHasActionScope"
+        # "rest_framework.permissions.AllowAny",
+        "AttendanceSystemAPI.permission.TokenHasActionScope"
     ],
     # 'DEFAULT_FILTER_BACKENDS': [
     #     'django_filters.rest_framework.DjangoFilterBackend'

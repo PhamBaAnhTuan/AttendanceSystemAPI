@@ -18,6 +18,7 @@ class UserManager(BaseUserManager):
 
         if role is None:
             role, created = Role.objects.get_or_create(
+                id='teacher',
                 name='teacher',
                 defaults={'scope': 'teacher'}
             )
@@ -50,6 +51,7 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_active", True)
         role, _ = Role.objects.get_or_create(
+            id='admin',
             name='admin',
             defaults={'scope': 'admin'}
         )

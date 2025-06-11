@@ -7,7 +7,7 @@ class Role(models.Model):
       max_length=10, primary_key=True, editable=False, unique=True
    )   
    name = models.CharField(max_length=200, null=False, blank=False, unique=True)
-   scope = models.TextField(default="admin", null=True, blank=True)
+   scope = models.TextField(null=True, blank=True)
    created_at = models.DateTimeField(default=timezone.now)
    updated_at = models.DateTimeField(auto_now=True)
 

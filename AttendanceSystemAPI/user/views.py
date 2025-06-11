@@ -48,15 +48,15 @@ class UserViewSet(BaseViewSet, OAuthLibMixin):
         "destroy": [["admin"]],
     }
 
-    def get_queryset(self):
-        user = self.request.user
-        if not user or not user.is_authenticated:
-            raise NotAuthenticated("You must be signin in to access this resource!")
-        if not hasattr(user, 'role') or user.role is None:
-            raise PermissionDenied("You do not have a role assigned!")
-        if user.role.name == "admin":
-            return User.objects.all()
-        return User.objects.filter(id=user.id)
+    # def get_queryset(self):
+    #     user = self.request.user
+    #     if not user or not user.is_authenticated:
+    #         raise NotAuthenticated("You must be signin in to access this resource!")
+    #     if not hasattr(user, 'role') or user.role is None:
+    #         raise PermissionDenied("You do not have a role assigned!")
+    #     if user.role.name == "admin":
+    #         return User.objects.all()
+    #     return User.objects.filter(id=user.id)
 
     @action(methods=['post'], detail=False, url_path="signup", permission_classes=[AllowAny])
     def signup(self, request, *args, **kwargs):
@@ -94,7 +94,7 @@ class UserViewSet(BaseViewSet, OAuthLibMixin):
         password = request.data.get('password')
         print(f"Client id: {config('CLIENT_ID')}")
         user = authenticate(username=username, password=password)
-        scope = user.role.scope if hasattr(user, 'role') and user.role else ""
+        scope = user.role.name if hasattr(user, 'role') and user.role else ""
         if user:
             post_data = request.data.copy()
             post_data.update(

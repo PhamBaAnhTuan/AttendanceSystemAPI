@@ -5,9 +5,7 @@ from django.utils import timezone
 import uuid
 
 class Faculty(models.Model):
-    id = models.UUIDField(
-        primary_key=True, default=uuid.uuid4, editable=False, unique=True
-    )
+    id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255, unique=True, null=False, blank=False)
     description = models.TextField(blank=True)
     
@@ -15,9 +13,7 @@ class Faculty(models.Model):
         return self.name
     
 class Major(models.Model):
-    id = models.UUIDField(
-        primary_key=True, default=uuid.uuid4, editable=False, unique=True
-    )
+    id = models.AutoField(primary_key=True)
     faculty = models.ForeignKey(Faculty, on_delete=models.SET_NULL, null=True, blank=True, related_name="majors")
     name = models.CharField(max_length=255, unique=True, null=False, blank=False)
     description = models.TextField(blank=True)
@@ -25,9 +21,7 @@ class Major(models.Model):
     def __str__(self):
         return self.name
 class Subject(models.Model):
-    id = models.UUIDField(
-        primary_key=True, default=uuid.uuid4, editable=False, unique=True
-    )
+    id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255, unique=True, null=False, blank=False)
     major = models.ForeignKey(Major, on_delete=models.SET_NULL, null=True, blank=True)
     credit = models.IntegerField(null=False, blank=False, default=3)
@@ -39,9 +33,7 @@ class Subject(models.Model):
         return self.name
 
 class Class(models.Model):
-    id = models.UUIDField(
-        primary_key=True, default=uuid.uuid4, editable=False, unique=True
-    )
+    id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100, unique=True, null=True, blank=True)
     major = models.ForeignKey(Major, on_delete=models.SET_NULL, null=True, blank=True)
     description = models.TextField(blank=True, null=True)
@@ -52,9 +44,7 @@ class Class(models.Model):
         return self.name
 
 class Room(models.Model):
-    id = models.UUIDField(
-        primary_key=True, default=uuid.uuid4, editable=False, unique=True
-    )
+    id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100, unique=True, null=False, blank=False)
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
@@ -79,9 +69,7 @@ class PeriodDefinition(models.Model):
     def __str__(self):
         return f"{self.name} ({self.get_shift_display()}) [{self.start_time} - {self.end_time}]"
 class Schedule(models.Model):
-    id = models.UUIDField(
-        primary_key=True, default=uuid.uuid4, editable=False, unique=True
-    )
+    id = models.AutoField(primary_key=True)
     date = models.DateField(default=timezone.now, null=True, blank=True)
     teacher = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     classes = models.ForeignKey(Class, on_delete=models.CASCADE, null=True, blank=True)

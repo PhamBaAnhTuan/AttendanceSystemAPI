@@ -10,13 +10,14 @@ from .utils import process_training_images, recognize_faces_in_image
 import os
 import re
 from django.conf import settings
-import uuid
+import random
 from django.db import IntegrityError
 from django.utils import timezone
 
 from oauth2_provider.views.mixins import OAuthLibMixin
 from AttendanceSystemAPI.views.base import BaseViewSet
 from rest_framework.exceptions import NotAuthenticated, PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 
 from django.contrib.auth import get_user_model
 User = get_user_model()
@@ -24,6 +25,8 @@ User = get_user_model()
 from .filter import SessionFilterBackend
 
 class FaceTrainingAPIView(viewsets.ViewSet):
+   queryset = FaceTrainingSession.objects.all()
+   permission_classes=[IsAuthenticated]
    required_alternate_scopes = {
       "list": [["admin"], ["teacher"], ["student"]],
       "retrieve": [["admin"], ["teacher"], ["student"]],
@@ -32,21 +35,24 @@ class FaceTrainingAPIView(viewsets.ViewSet):
       "destroy": [["admin"]],
    }
    
-   def extract_student_info_from_filename(self, filename):
-      pattern = r'(?i)^Student_([0-9a-fA-F\-]{36})_(.+)_(.+)\.(png|jpg|jpeg|bmp|gif|webp)$'
-      match = re.match(pattern, filename)
-
+   def extract_info_from_filename(self, filename):
+      basename = os.path.basename(filename)
+      
+      # Mẫu regex để tách role, id, fullname, position
+      pattern = r'^([0-9]+)_([a-zA-ZÀ-ỹ0-9]+)_([a-zA-Z0-9]+)\.(png|jpg|jpeg|bmp|gif|webp)$'
+      match = re.match(pattern, basename)
+      
       if not match:
          return None, None, None
 
-      student_id = match.group(1)
-      full_and_position = match.group(2)
+      id = match.group(1)
+      fullname = match.group(2)
       position = match.group(3)
 
-      # Khử dấu gạch dưới nếu fullname có dấu _
-      student_name = full_and_position.replace('_', ' ')
-      
-      return student_id, student_name, position
+      # Chuyển đổi fullname từ NguyễnQuốcVương -> Nguyễn Quốc Vương
+      fullname = re.sub(r'([a-z])([A-ZÀ-Ý])', r'\1 \2', fullname)
+
+      return id, fullname, position
 
     
    @action(detail=False, methods=['post'], url_path='train')
@@ -68,11 +74,12 @@ class FaceTrainingAPIView(viewsets.ViewSet):
                filename = image.name
                
                # Extract student info from filename
-               student_id, student_name, position = self.extract_student_info_from_filename(filename)
+               student_id, student_name, position = self.extract_info_from_filename(filename)
+               print(f"ID: {student_id} \n {student_name} \n {position}")
                
                if not student_id or not position:
                   return Response({
-                     "error": f"Invalid filename format for {filename}. Expected format: student_ID_fullname_position.png"
+                     "error": f"Invalid filename format for {filename}. Expected format: ID_fullname_position.png"
                   }, status=status.HTTP_400_BAD_REQUEST)
                
                # Add to images by student dictionary
@@ -103,21 +110,19 @@ class FaceTrainingAPIView(viewsets.ViewSet):
       
       # Get or create student
       try:
-         student = User.objects.get(id=uuid.UUID(student_id))
+         student = User.objects.get(id=student_id)
       except User.DoesNotExist:
          # If student doesn't exist but we have student_name from filename, create a new student
          student_name = list(student_images.values())[0]['student_name']
          student = User.objects.create(
-               id=uuid.UUID(student_id),
+               id=student_id,
                fullname=student_name
          )
       
       # Create training session
       session = FaceTrainingSession.objects.create(student=student)
-      
       # Process and save each image
       images_dict = {}
-      
       for position, image_data in student_images.items():
          image = image_data['image']
          filename = image_data['filename']
@@ -203,22 +208,10 @@ class FaceTrainingAPIView(viewsets.ViewSet):
                            status=status.HTTP_404_NOT_FOUND)
 
 class AttendanceViewSet(viewsets.ModelViewSet):
+   permission_classes=[IsAuthenticated]
    queryset = AttendanceSession.objects.all()
    serializer_class = AttendanceSessionSerializer
    filter_backends=[SessionFilterBackend]
-   
-   # def create(self, request):
-   #    """Create a new attendance session"""
-   #    serializer = self.get_serializer(data=request.data)
-   #    serializer.is_valid(raise_exception=True)
-      
-   #    # Create the session
-   #    session = AttendanceSession.objects.create(
-   #       session_name=serializer.validated_data['session_name'],
-   #       created_by=request.user if request.user.is_authenticated else None,
-   #    )
-      
-   #    return Response(self.get_serializer(session).data, status=status.HTTP_201_CREATED)
     
    @action(detail=True, methods=['post'], url_path='end-session')
    def end_session(self, request, pk=None):
@@ -252,9 +245,9 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                return Response({"error": "No image provided"}, status=status.HTTP_400_BAD_REQUEST)
          
          uploaded_image = request.FILES['image']
-         
          # Save the uploaded image temporarily
-         temp_filename = f"attendance_{uuid.uuid4().hex}.png"
+         random_id = random.randint(1, 99)
+         temp_filename = f"attendance_{random_id}.png"
          temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp')
          os.makedirs(temp_dir, exist_ok=True)
          temp_path = os.path.join(temp_dir, temp_filename)
@@ -299,6 +292,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                      marked_students.append({
                            'student_id': student.id,
                            'student_name': student.fullname,
+                           'recognized_time': timezone.now(),
                            'confidence': face_data['confidence'],
                            'already_marked': not created,
                      })
@@ -315,7 +309,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                   'session_id': session.id,
                   'session_name': session.session_name,
                   'recognized_count': len(recognized_faces),
-                  'marked_students': marked_students
+                  'marked_students': marked_students,
                })
                 
          finally:
@@ -369,7 +363,8 @@ class AttendanceViewSet(viewsets.ModelViewSet):
                               status=status.HTTP_400_BAD_REQUEST)
          
          # Save the uploaded video temporarily
-         temp_filename = f"attendance_video_{uuid.uuid4().hex}{file_extension}"
+         random_id = random.randint(1, 99)
+         temp_filename = f"attendance_video_{random_id}{file_extension}"
          temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp')
          os.makedirs(temp_dir, exist_ok=True)
          temp_video_path = os.path.join(temp_dir, temp_filename)

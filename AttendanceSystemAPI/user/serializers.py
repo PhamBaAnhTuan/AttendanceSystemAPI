@@ -18,8 +18,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = '__all__'
-        # exclude = ['face_encodings', 'is_superuser', 'is_staff', 'created_at', 'updated_at']
+        fields = ['id', 'fullname', 'email', 'phone_number', 'address', 'date_of_birth', 'avatar', 'role', 'role_id', 'password']
+        # exclude = ['face_encodings', 'is_superuser', 'is_staff', 'created_at', 'updated_at', 'is_active', 'last_login', 'groups', 'user_permissions']
 
     
 class UserInfoSerializer(serializers.ModelSerializer):
@@ -33,7 +33,8 @@ class UserInfoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'fullname', 'email', 'phone_number', 'address', 'date_of_birth', 'avatar', 'role']
+        # fields = ['id', 'fullname', 'email', 'phone_number', 'address', 'date_of_birth', 'avatar', 'role']
+        exclude = ['face_encodings', 'password', 'is_superuser', 'is_active', 'groups', 'user_permissions', 'last_login', 'is_staff', 'created_at', 'updated_at']
 class UserInfoShortSerializer(serializers.ModelSerializer):
 
     class Meta:

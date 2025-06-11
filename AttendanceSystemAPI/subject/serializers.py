@@ -9,7 +9,7 @@ from .models import (
 )
 from user.models import User
 from roles.serializer import RoleSerializer
-from user.serializers import UserInfoSerializer
+from user.serializers import UserSerializer
 
 
 class FacultySerializer(serializers.ModelSerializer):
@@ -152,7 +152,7 @@ class TeacherClassSerializer(serializers.ModelSerializer):
 # 
 class StudentClassSerializer(serializers.ModelSerializer):
     # filter field
-    student = TeacherShortSerializer(read_only=True)
+    student = UserSerializer(read_only=True)
     classes = ClassShortSerializer(read_only=True)
     # post field
     student_id = serializers.PrimaryKeyRelatedField(
