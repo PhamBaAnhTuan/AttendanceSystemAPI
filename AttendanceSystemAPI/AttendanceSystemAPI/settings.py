@@ -32,9 +32,19 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# ALLOWED_HOSTS = [
+#     'https://3608-14-191-112-99.ngrok-free.app/',
+#     'attendancesystemui.onrender.com',
+#     'localhost:3000',
+#     '127.0.0.1'
+# ]
 ALLOWED_HOSTS = ['*']
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'authorization',
+    'content-type',
+    'ngrok-skip-browser-warning',  # 👈 phải thêm đúng tên header này
+]
 
 INSTALLED_APPS = [
     'channels',
@@ -127,12 +137,18 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
 ROOT_URLCONF = 'AttendanceSystemAPI.urls'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        "DIRS": [
+            "/home/html/example.com",
+            "/home/html/default",
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
